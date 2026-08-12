@@ -57,9 +57,8 @@
 **Диаграмма компонентов (Components)**
 ```markdown
 Регистрация устройств, привязка к дому
-<img width="392" height="362" alt="Компонент drawio" src="https://github.com/user-attachments/assets/6aa123c6-31ae-4e14-bce2-2a9364b4eb18" />
 ```
-
+<img width="392" height="362" alt="Компонент drawio" src="https://github.com/user-attachments/assets/6aa123c6-31ae-4e14-bce2-2a9364b4eb18" />
 **Диаграмма кода (Code)**
 
 Добавьте одну диаграмму или несколько.
