@@ -55,9 +55,10 @@
 <img width="4096" height="1129" alt="image" src="https://github.com/user-attachments/assets/7e65836c-7ece-462b-8d4e-493d9420cff0" />
 
 **Диаграмма компонентов (Components)**
+```markdown
 Регистрация устройств, привязка к дому
 <img width="392" height="362" alt="Компонент drawio" src="https://github.com/user-attachments/assets/6aa123c6-31ae-4e14-bce2-2a9364b4eb18" />
-
+```
 
 **Диаграмма кода (Code)**
 
