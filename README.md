@@ -52,6 +52,7 @@
 **Диаграмма контейнеров (Containers)**
 
 [Диаграмма контейнеров](https://github.com/VeretOlga/architecture-warmhouse/blob/warmhouse/apps/Arch_conteiner_C4)
+<img width="4096" height="1129" alt="image" src="https://github.com/user-attachments/assets/7e65836c-7ece-462b-8d4e-493d9420cff0" />
 
 **Диаграмма компонентов (Components)**
 
