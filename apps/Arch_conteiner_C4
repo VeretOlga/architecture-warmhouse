@@ -1,0 +1,95 @@
+@startuml
+!include <C4/C4_Container.puml>
+
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Владелец умного дома")
+
+System_Boundary(system, "Экосистема «Тёплый дом»") {
+    Container(web, "Web/Mobile Client", "React", "Пользовательский интерфейс")
+
+    Container(gateway, "API Gateway", "Nginx", "Маршрутизация, аутентификация, rate limiting")
+    Container(auth, "Auth Service", "Go", "Аутентификация и управление сессиями")
+    Container(userhome, "User & Home Service", "Go", "Управление пользователями, домами, комнатами")
+    Container(devreg, "Device Registry Service", "Go", "Регистрация устройств, привязка к дому")
+    Container(catalog, "Device Model Catalog", "Go", "Каталог моделей устройств")
+    Container(heating, "Heating Control Service", "Go", "Управление отоплением")
+    Container(lighting, "Lighting Control Service", "Go", "Управление освещением")
+    Container(gate, "Gate Control Service", "Go", "Управление воротами")
+    Container(camera, "Camera/Surveillance Service", "Go", "Управление камерами, видео")
+    Container(scenario, "Scenario/Automation Service", "Go", "Сценарии автоматизации")
+    Container(telemetry, "Telemetry Service", "Go", "Сбор и хранение телеметрии")
+    Container(notif, "Notification Service", "Go", "Отправка уведомлений")
+    Container(iotgw, "Device Gateway", "Go", "Подключение устройств по MQTT/HTTPs и преобразование протоколов")
+    ContainerDb(dev_db, "Device DB", "PostgreSQL", "Устройства, модели, статусы")
+    ContainerDb(user_db, "User DB", "PostgreSQL", "Пользователи, дома, комнаты")
+    ContainerDb(scenario_db, "Scenario DB", "PostgreSQL", "Сценарии, триггеры, действия")
+    ContainerDb(telemetry_db, "Telemetry DB", "PostgreSQL (timescale)", "История телеметрии")
+    ContainerDb(camera_db, "Camera DB", "MinIO", "Метаданные видео, снимки")
+    Container(broker, "Message Broker", "Kafka", "Асинхронное взаимодействие между сервисами")
+    Container(cache, "Cache", "Valkey", "Кэширование состояний и сессий")
+}
+
+Rel(user, web, "Использует", "HTTPS")
+Rel(web, gateway, "Запросы", "REST/GraphQL")
+Rel(gateway, auth, "Проверка токена")
+Rel(gateway, userhome, "Управление профилем", "REST")
+Rel(gateway, devreg, "Регистрация устройств", "REST")
+Rel(gateway, heating, "Управление отоплением", "REST")
+Rel(gateway, lighting, "Управление освещением", "REST")
+Rel(gateway, gate, "Управление воротами", "REST")
+Rel(gateway, camera, "Управление камерами", "REST")
+Rel(gateway, scenario, "Управление сценариями", "REST")
+Rel(gateway, telemetry, "Чтение телеметрии", "REST")
+Rel(gateway, notif, "Настройка уведомлений", "REST")
+
+Rel(devreg, catalog, "Запрос моделей")
+Rel(devreg, dev_db, "Чтение/запись")
+Rel(userhome, user_db, "Чтение/запись")
+Rel(heating, dev_db, "Получение конфигурации устройств")
+Rel(lighting, dev_db, "Получение конфигурации устройств")
+Rel(gate, dev_db, "Получение конфигурации устройств")
+Rel(camera, dev_db, "Получение конфигурации устройств")
+Rel(camera, camera_db, "Хранение метаданных")
+Rel(scenario, scenario_db, "Чтение/запись")
+Rel(scenario, dev_db, "Получение устройств")
+Rel(telemetry, telemetry_db, "Запись")
+Rel(notif, user_db, "Получение контактов")
+
+' Асинхронные взаимодействия
+Rel(heating, broker, "Публикует команды", "AMQP/Kafka")
+Rel(lighting, broker, "Публикует команды")
+Rel(gate, broker, "Публикует команды")
+Rel(camera, broker, "Публикует события движения")
+Rel(scenario, broker, "Подписывается на события состояний", "AMQP/Kafka")
+Rel(telemetry, broker, "Подписывается на телеметрию")
+Rel(notif, broker, "Подписывается на уведомления")
+Rel(iotgw, broker, "Публикует телеметрию и состояния, подписывается на команды")
+
+Rel(iotgw, dev_db, "Проверка устройств")
+Rel(iotgw, cache, "Кэширование состояний")
+
+' Внешние устройства
+System_Ext(device1, "Датчик температуры", "Устройство партнёра")
+System_Ext(device2, "Умная лампа", "Устройство партнёра")
+System_Ext(device3, "Автоматические ворота", "Устройство партнёра")
+System_Ext(device4, "IP-камера", "Устройство партнёра")
+
+Rel(device1, iotgw, "MQTT/HTTP")
+Rel(device2, iotgw, "Z-Wave/MQTT")
+Rel(device3, iotgw, "HTTP")
+Rel(device4, iotgw, "RTSP/MQTT")
+
+' Уведомления
+System_Ext(push, "Push-провайдер", "APNS/FCM")
+System_Ext(email, "SMTP-сервер", "Email")
+System_Ext(sms, "SMS-шлюз", "SMS")
+
+Rel(notif, push, "Отправка push")
+Rel(notif, email, "Отправка email")
+Rel(notif, sms, "Отправка SMS")
+
+' Кэширование
+Rel(userhome, cache, "Кэш пользователей")
+Rel(devreg, cache, "Кэш устройств")
+@enduml
