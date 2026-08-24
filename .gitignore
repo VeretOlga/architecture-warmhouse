@@ -199,3 +199,6 @@ task-*
 /.vs
 /Temperature-Api/.vs/Temperature-Api.slnx/v18
 /Temperature-Api/.vs/Temperature-Api.slnx
+/apps/Temperature-Api/.vs
+/apps/Temperature-Api/bin/Debug/net10.0
+/apps/Temperature-Api/obj
