@@ -72,7 +72,7 @@
 
 # Задание 3. Разработка ER-диаграммы
 ```markdown
-[УК-диаграмма] (apps/ER-diagramm)
+[ER-диаграмма] (apps/ER-diagramm)
 
 ```
 <img width="2006" height="1536" alt="image" src="https://github.com/user-attachments/assets/32da3b61-102e-4460-993a-f2a10ff8c991" />
