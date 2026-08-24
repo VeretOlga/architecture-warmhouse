@@ -30,6 +30,24 @@
             };
         }
 
-            
+
+        public static TemperatureResponce GetTemperatureByID(int sensorId)
+        {
+
+            int value = _random.Next(180, 281); // верхняя граница не включается, поэтому 281
+            double valueTemp = value / 10.0;
+            string SensorIdCur = SensorId.GetValueOrDefault(sensorId.ToString(), "Unknown");
+            string locationCur = Locations.GetValueOrDefault(sensorId, "4");
+
+            return new TemperatureResponce()
+            {
+                Value = valueTemp,
+                Location = locationCur,
+                SensorID = SensorIdCur,
+
+            };
+        }
+
+
     }
 }
