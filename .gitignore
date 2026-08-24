@@ -192,3 +192,10 @@ build/
 
 tmp/
 task-*
+/Temperature-Api/obj
+*.user
+
+/Temperature-Api/bin/Debug/net10.0
+/.vs
+/Temperature-Api/.vs/Temperature-Api.slnx/v18
+/Temperature-Api/.vs/Temperature-Api.slnx
