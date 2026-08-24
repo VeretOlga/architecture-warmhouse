@@ -1,0 +1,174 @@
+@startuml
+!define table(x) entity x << (T,#FFAAAA) >>
+!define primary_key(x) <b><color:red>x</color></b>
+!define foreign_key(x) <color:blue>x</color>
+
+title ER-диаграмма экосистемы «Тёплый дом»
+
+' === Сущности ===
+
+entity User {
+  * user_id : integer <<PK>>
+  --
+  email : varchar(255)
+  password_hash : varchar(255)
+  full_name : varchar(255)
+  phone : varchar(20)
+  registration_date : timestamp
+  is_active : boolean
+}
+
+entity Home {
+  * home_id : integer <<PK>>
+  --
+  foreign_key user_id : integer <<FK>>
+  name : varchar(100)
+  address : text
+  timezone : varchar(50)
+  created_at : timestamp
+}
+
+entity Room {
+  * room_id : integer <<PK>>
+  --
+  foreign_key home_id : integer <<FK>>
+  name : varchar(100)
+  floor : integer
+}
+
+entity DeviceProduction {
+  * deviceProduction_id : integer <<PK>>
+  --
+  name : varchar(255)
+  website : varchar(255)
+  contact_info : text
+}
+
+entity DeviceModel {
+  * model_id : integer <<PK>>
+  --
+  foreign_key deviceProduction_id : integer <<FK>>
+  name : varchar(255)
+  device_type : enum('heating','lighting','gate','camera','sensor','other')
+  protocol : enum('MQTT','Z-Wave','Wi-Fi','CoAP')
+  capabilities : json
+  specifications : json
+}
+
+entity Device {
+  * device_id : integer <<PK>>
+  --
+  foreign_key home_id : integer <<FK>>
+  foreign_key room_id : integer <<FK>>
+  foreign_key model_id : integer <<FK>>
+  serial_number : varchar(100) <<unique>>
+  firmware_version : varchar(50)
+  ip_address : inet
+  mac_address : macaddr
+  status : enum('online','offline','error')
+  installation_date : date
+  last_seen : timestamp
+  custom_name : varchar(255)
+}
+
+entity Module {
+  * module_id : integer <<PK>>
+  --
+  name : varchar(255)
+  description : text
+  price : decimal(10,2)
+  sku : varchar(50)
+}
+
+entity ModuleDevice {
+  * module_id : integer <<PK>>
+  * device_model_id : integer <<PK>>
+}
+
+entity Scenario {
+  * scenario_id : integer <<PK>>
+  --
+  foreign_key user_id : integer <<FK>>
+  foreign_key home_id : integer <<FK>>
+  name : varchar(255)
+  description : text
+  is_enabled : boolean
+  created_at : timestamp
+  updated_at : timestamp
+}
+
+entity Trigger {
+  * trigger_id : integer <<PK>>
+  --
+  foreign_key scenario_id : integer <<FK>>
+  foreign_key device_id : integer <<FK>>
+  trigger_type : enum('temperature_threshold','motion_detected','time_schedule','device_state')
+  condition : json
+}
+
+entity Action {
+  * action_id : integer <<PK>>
+  --
+  foreign_key scenario_id : integer <<FK>>
+  foreign_key device_id : integer <<FK>>
+  action_type : enum('set_temperature','turn_on','turn_off','open_gate','send_notification')
+  parameters : json
+}
+
+entity Telemetry {
+  * telemetry_id : bigint <<PK>>
+  --
+  foreign_key device_id : integer <<FK>>
+  timestamp : timestamp
+  metric_type : varchar(50)
+  value : float
+  unit : varchar(20)
+}
+
+entity EventLog {
+  * log_id : bigint <<PK>>
+  --
+  foreign_key user_id : integer <<FK>>
+  foreign_key device_id : integer <<FK>>
+  timestamp : timestamp
+  event_type : varchar(50)
+  details : json
+}
+
+' === Связи ===
+
+User ||--o{ Home : "владеет"
+Home ||--|{ Room : "содержит"
+Home ||--|{ Device : "размещает"
+Room ||--o{ Device : "находится в"
+
+DeviceProduction ||--|{ DeviceModel : "производит"
+DeviceModel ||--|{ Device : "соответствует"
+
+Module }|--|{ ModuleDevice : "состоит из"
+DeviceModel }|--|{ ModuleDevice : "входит в"
+
+User ||--|{ Scenario : "создаёт"
+Home ||--|{ Scenario : "действует в"
+
+Scenario ||--|{ Trigger : "содержит"
+Scenario ||--|{ Action : "выполняет"
+Device ||--o{ Trigger : "может быть источником"
+Device ||--o{ Action : "может быть целью"
+
+Device ||--|{ Telemetry : "генерирует"
+
+User ||--o{ EventLog : "инициирует"
+Device ||--o{ EventLog : "участвует"
+
+' === Легенда (опционально) ===
+legend bottom
+  <b>Обозначения:</b>
+  * <color:red>красный</color> – первичный ключ (PK)
+  * <color:blue>синий</color> – внешний ключ (FK)
+  * |--o{ – "один ко многим" (необязательная)
+  * ||--|{ – "один ко многим" (обязательная)
+  * }|--|{ – "многие ко многим"
+  * o--o – "ноль или один"
+endlegend
+@enduml
