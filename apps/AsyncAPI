@@ -1,0 +1,227 @@
+asyncapi: 2.6.0
+info:
+  title: Событийная шина экосистемы «Тёплый дом»
+  version: 1.0.0
+  description: |
+    Описание топиков Kafka, используемых для асинхронного обмена между микросервисами.
+    Все сообщения сериализуются в JSON.
+
+servers:
+  production:
+    url: kafka.tepldom.ru:9092
+    protocol: kafka
+    description: Продукционный кластер Kafka
+
+channels:
+  telemetry.device:
+    description: Поток телеметрических данных от устройств (публикует Device Gateway)
+    subscribe:
+      operationId: receiveTelemetry
+      message:
+        $ref: '#/components/messages/TelemetryMessage'
+
+  state.device:
+    description: Изменения состояния устройств (online/offline, режимы, значения)
+    subscribe:
+      operationId: receiveDeviceState
+      message:
+        $ref: '#/components/messages/DeviceStateMessage'
+
+  command.device.{deviceId}:
+    description: Команды управления конкретным устройством (публикуют сервисы управления, подписывается Device Gateway)
+    parameters:
+      deviceId:
+        schema:
+          type: integer
+          description: ID устройства
+    publish:
+      operationId: sendCommand
+      message:
+        $ref: '#/components/messages/CommandMessage'
+
+  alert.device:
+    description: События тревоги (движение, открытие двери, превышение температуры)
+    subscribe:
+      operationId: receiveAlert
+      message:
+        $ref: '#/components/messages/AlertMessage'
+
+  scenario.triggered:
+    description: Событие срабатывания сценария (публикует Automation Service, подписывается Notification Service и другие)
+    publish:
+      operationId: scenarioTriggered
+      message:
+        $ref: '#/components/messages/ScenarioTriggeredMessage'
+
+  notification.user:
+    description: Запрос на отправку уведомления пользователю (публикует Automation Service или другие, подписывается Notification Service)
+    publish:
+      operationId: requestNotification
+      message:
+        $ref: '#/components/messages/NotificationRequestMessage'
+
+components:
+  messages:
+    TelemetryMessage:
+      summary: Сообщение с телеметрией
+      payload:
+        type: object
+        required:
+          - device_id
+          - timestamp
+          - metrics
+        properties:
+          device_id:
+            type: integer
+            description: ID устройства
+          timestamp:
+            type: string
+            format: date-time
+          metrics:
+            type: array
+            items:
+              type: object
+              required:
+                - type
+                - value
+              properties:
+                type:
+                  type: string
+                  description: Тип метрики (temperature, humidity, battery, power и т.д.)
+                value:
+                  type: number
+                unit:
+                  type: string
+                  description: Единица измерения (опционально)
+
+    DeviceStateMessage:
+      summary: Изменение состояния устройства
+      payload:
+        type: object
+        required:
+          - device_id
+          - timestamp
+          - status
+        properties:
+          device_id:
+            type: integer
+          timestamp:
+            type: string
+            format: date-time
+          status:
+            type: string
+            enum: [online, offline, error]
+          state:
+            type: object
+            description: Дополнительные параметры состояния (текущая температура, режим и т.п.)
+          reason:
+            type: string
+            description: Причина изменения (если есть)
+
+    CommandMessage:
+      summary: Команда управления устройством
+      payload:
+        type: object
+        required:
+          - command_id
+          - device_id
+          - action
+          - parameters
+        properties:
+          command_id:
+            type: string
+            format: uuid
+          device_id:
+            type: integer
+          action:
+            type: string
+            description: Тип команды (set_temperature, turn_on, turn_off, open_gate, set_brightness и т.д.)
+          parameters:
+            type: object
+            description: Параметры команды (зависят от действия)
+          timestamp:
+            type: string
+            format: date-time
+          source_service:
+            type: string
+            description: Сервис, отправивший команду (heating, lighting, scenario и т.п.)
+
+    AlertMessage:
+      summary: Событие тревоги
+      payload:
+        type: object
+        required:
+          - device_id
+          - timestamp
+          - alert_type
+          - severity
+        properties:
+          device_id:
+            type: integer
+          timestamp:
+            type: string
+            format: date-time
+          alert_type:
+            type: string
+            enum: [motion, intrusion, temperature_exceed, low_battery]
+          severity:
+            type: string
+            enum: [info, warning, critical]
+          description:
+            type: string
+          data:
+            type: object
+            description: Дополнительные данные (например, снимок камеры)
+
+    ScenarioTriggeredMessage:
+      summary: Сценарий сработал
+      payload:
+        type: object
+        required:
+          - scenario_id
+          - user_id
+          - home_id
+          - timestamp
+        properties:
+          scenario_id:
+            type: integer
+          user_id:
+            type: integer
+          home_id:
+            type: integer
+          timestamp:
+            type: string
+            format: date-time
+          trigger_description:
+            type: string
+          actions_executed:
+            type: array
+            items:
+              type: object
+              properties:
+                action_type: { type: string }
+                target_device_id: { type: integer }
+                result: { type: string }
+
+    NotificationRequestMessage:
+      summary: Запрос на отправку уведомления
+      payload:
+        type: object
+        required:
+          - user_id
+          - channel
+          - subject
+          - body
+        properties:
+          user_id:
+            type: integer
+          channel:
+            type: string
+            enum: [email, push, sms]
+          subject:
+            type: string
+          body:
+            type: string
+          data:
+            type: object
+            description: Дополнительные данные для шаблонов
