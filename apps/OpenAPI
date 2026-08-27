@@ -1,0 +1,585 @@
+openapi: 3.0.1
+info:
+  title: API Gateway экосистемы «Тёплый дом»
+  version: 1.0.0
+  description: Единая точка входа для всех внешних клиентов (Web, Mobile).
+
+servers:
+  - url: https://api.tepldom.ru/v1
+    description: Продукционный сервер
+
+security:
+  - bearerAuth: []
+
+paths:
+  # --- Аутентификация ---
+  /auth/register:
+    post:
+      summary: Регистрация нового пользователя
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '400':
+          description: Ошибка валидации
+      x-microservice: auth
+
+  /auth/login:
+    post:
+      summary: Вход в систему
+      tags: [Authentication]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        '200':
+          description: JWT-токен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  token_type: { type: string, example: Bearer }
+                  expires_in: { type: integer }
+      x-microservice: auth
+
+  # --- Пользователи и дома ---
+  /users/me:
+    get:
+      summary: Получить профиль текущего пользователя
+      tags: [User & Home]
+      responses:
+        '200':
+          description: Профиль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+      x-microservice: userhome
+    put:
+      summary: Обновить профиль
+      tags: [User & Home]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name: { type: string }
+                phone: { type: string }
+      responses:
+        '200':
+          description: Обновлённый профиль
+      x-microservice: userhome
+
+  /homes:
+    get:
+      summary: Список домов пользователя
+      tags: [User & Home]
+      responses:
+        '200':
+          description: Массив домов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Home'
+      x-microservice: userhome
+    post:
+      summary: Добавить новый дом
+      tags: [User & Home]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, address]
+              properties:
+                name: { type: string }
+                address: { type: string }
+                timezone: { type: string, default: Europe/Moscow }
+      responses:
+        '201':
+          description: Созданный дом
+      x-microservice: userhome
+
+  /homes/{homeId}/rooms:
+    get:
+      summary: Комнаты в доме
+      tags: [User & Home]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Массив комнат
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+      x-microservice: userhome
+
+  # --- Устройства ---
+  /devices:
+    get:
+      summary: Список устройств пользователя (с фильтрами по дому/комнате)
+      tags: [Device Registry]
+      parameters:
+        - { name: homeId, in: query, schema: { type: integer } }
+        - { name: roomId, in: query, schema: { type: integer } }
+        - { name: type, in: query, schema: { type: string, enum: [heating, lighting, gate, camera, sensor] } }
+      responses:
+        '200':
+          description: Массив устройств
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Device'
+      x-microservice: devreg
+    post:
+      summary: Зарегистрировать новое устройство (по серийному номеру)
+      tags: [Device Registry]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [serial_number, home_id]
+              properties:
+                serial_number: { type: string }
+                home_id: { type: integer }
+                room_id: { type: integer }
+                custom_name: { type: string }
+      responses:
+        '201':
+          description: Зарегистрированное устройство
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+      x-microservice: devreg
+
+  /devices/{deviceId}:
+    get:
+      summary: Информация об устройстве
+      tags: [Device Registry]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Детали устройства
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Device'
+      x-microservice: devreg
+    delete:
+      summary: Удалить устройство
+      tags: [Device Registry]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '204':
+          description: Устройство удалено
+      x-microservice: devreg
+
+  /models:
+    get:
+      summary: Список поддерживаемых моделей (каталог)
+      tags: [Device Model Catalog]
+      parameters:
+        - { name: manufacturer, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string, enum: [heating, lighting, gate, camera, sensor] } }
+      responses:
+        '200':
+          description: Массив моделей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DeviceModel'
+      x-microservice: catalog
+
+  # --- Управление устройствами (контроллеры) ---
+  /controls/heating/{deviceId}/temperature:
+    put:
+      summary: Установить температуру для отопительного устройства
+      tags: [Heating Control]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target_temp]
+              properties:
+                target_temp: { type: number, format: float, minimum: 5, maximum: 35 }
+                mode: { type: string, enum: [comfort, economy, off] }
+      responses:
+        '202':
+          description: Команда принята (асинхронное выполнение)
+        '404':
+          description: Устройство не найдено или не является нагревательным
+      x-microservice: heating
+
+  /controls/lighting/{deviceId}/state:
+    put:
+      summary: Включить/выключить освещение
+      tags: [Lighting Control]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [on]
+              properties:
+                on: { type: boolean }
+                brightness: { type: integer, minimum: 0, maximum: 100 }
+                color: { type: string, format: hex-color }
+      responses:
+        '202': { description: Команда принята }
+      x-microservice: lighting
+
+  /controls/gate/{deviceId}/action:
+    post:
+      summary: Открыть/закрыть ворота
+      tags: [Gate Control]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [open, close, stop] }
+      responses:
+        '202': { description: Команда принята }
+      x-microservice: gate
+
+  /controls/camera/{deviceId}/snapshot:
+    get:
+      summary: Получить последний снимок с камеры
+      tags: [Camera]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: Снимок (изображение)
+          content:
+            image/jpeg: {}
+        '202':
+          description: Запрос в обработке (если снимок генерируется асинхронно)
+      x-microservice: camera
+
+  /controls/camera/{deviceId}/stream:
+    get:
+      summary: Получить URL видеопотока
+      tags: [Camera]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200':
+          description: URL для RTSP/HLS
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  stream_url: { type: string }
+      x-microservice: camera
+
+  # --- Сценарии автоматизации ---
+  /scenarios:
+    get:
+      summary: Список сценариев пользователя
+      tags: [Automation]
+      responses:
+        '200':
+          description: Массив сценариев
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Scenario'
+      x-microservice: scenario
+    post:
+      summary: Создать новый сценарий
+      tags: [Automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScenarioCreate'
+      responses:
+        '201':
+          description: Созданный сценарий
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Scenario'
+      x-microservice: scenario
+
+  /scenarios/{scenarioId}:
+    get:
+      summary: Получить сценарий по ID
+      tags: [Automation]
+      parameters:
+        - { name: scenarioId, in: path, required: true, schema: { type: integer } }
+      responses:
+        '200': { description: Сценарий }
+      x-microservice: scenario
+    put:
+      summary: Обновить сценарий
+      tags: [Automation]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScenarioUpdate'
+      responses:
+        '200': { description: Обновлённый сценарий }
+      x-microservice: scenario
+    delete:
+      summary: Удалить сценарий
+      tags: [Automation]
+      responses:
+        '204': { description: Удалён }
+      x-microservice: scenario
+
+  # --- Телеметрия ---
+  /telemetry/latest:
+    get:
+      summary: Получить последние показатели для всех устройств пользователя
+      tags: [Telemetry]
+      parameters:
+        - { name: deviceId, in: query, schema: { type: integer } }
+      responses:
+        '200':
+          description: Массив последних значений
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Telemetry'
+      x-microservice: telemetry
+
+  /telemetry/history:
+    get:
+      summary: Получить историю телеметрии за период
+      tags: [Telemetry]
+      parameters:
+        - { name: deviceId, in: query, required: true, schema: { type: integer } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: metric, in: query, schema: { type: string, default: temperature } }
+        - { name: aggregate, in: query, schema: { type: string, enum: [raw, avg, min, max] } }
+      responses:
+        '200':
+          description: Массив точек
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Telemetry'
+      x-microservice: telemetry
+
+  # --- Уведомления ---
+  /notifications/settings:
+    get:
+      summary: Настройки уведомлений пользователя
+      tags: [Notification]
+      responses:
+        '200':
+          description: Настройки
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  email_enabled: { type: boolean }
+                  push_enabled: { type: boolean }
+                  sms_enabled: { type: boolean }
+      x-microservice: notif
+    put:
+      summary: Обновить настройки уведомлений
+      tags: [Notification]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email_enabled: { type: boolean }
+                push_enabled: { type: boolean }
+                sms_enabled: { type: boolean }
+      responses:
+        '200': { description: Обновлённые настройки }
+      x-microservice: notif
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        user_id: { type: integer }
+        email: { type: string }
+        full_name: { type: string }
+        phone: { type: string }
+        registration_date: { type: string, format: date-time }
+        is_active: { type: boolean }
+
+    RegistrationRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8 }
+        full_name: { type: string }
+        phone: { type: string }
+
+    Home:
+      type: object
+      properties:
+        home_id: { type: integer }
+        user_id: { type: integer }
+        name: { type: string }
+        address: { type: string }
+        timezone: { type: string }
+        created_at: { type: string, format: date-time }
+
+    Room:
+      type: object
+      properties:
+        room_id: { type: integer }
+        home_id: { type: integer }
+        name: { type: string }
+        floor: { type: integer }
+
+    DeviceModel:
+      type: object
+      properties:
+        model_id: { type: integer }
+        manufacturer_id: { type: integer }
+        name: { type: string }
+        device_type: { type: string, enum: [heating, lighting, gate, camera, sensor, other] }
+        protocol: { type: string, enum: [MQTT, Z-Wave, Wi-Fi, CoAP] }
+        capabilities: { type: object }
+        specifications: { type: object }
+
+    Device:
+      type: object
+      properties:
+        device_id: { type: integer }
+        home_id: { type: integer }
+        room_id: { type: integer }
+        model_id: { type: integer }
+        serial_number: { type: string }
+        firmware_version: { type: string }
+        ip_address: { type: string, format: ipv4 }
+        mac_address: { type: string }
+        status: { type: string, enum: [online, offline, error] }
+        installation_date: { type: string, format: date }
+        last_seen: { type: string, format: date-time }
+        custom_name: { type: string }
+
+    ScenarioTrigger:
+      type: object
+      properties:
+        trigger_id: { type: integer }
+        trigger_type: { type: string, enum: [temperature_threshold, motion_detected, time_schedule, device_state] }
+        condition: { type: object }
+
+    ScenarioAction:
+      type: object
+      properties:
+        action_id: { type: integer }
+        action_type: { type: string, enum: [set_temperature, turn_on, turn_off, open_gate, send_notification] }
+        parameters: { type: object }
+
+    Scenario:
+      type: object
+      properties:
+        scenario_id: { type: integer }
+        user_id: { type: integer }
+        home_id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        is_enabled: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        triggers: { type: array, items: { $ref: '#/components/schemas/ScenarioTrigger' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/ScenarioAction' } }
+
+    ScenarioCreate:
+      type: object
+      required: [home_id, name, triggers, actions]
+      properties:
+        home_id: { type: integer }
+        name: { type: string }
+        description: { type: string }
+        triggers: { type: array, items: { $ref: '#/components/schemas/ScenarioTrigger' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/ScenarioAction' } }
+
+    ScenarioUpdate:
+      type: object
+      properties:
+        name: { type: string }
+        description: { type: string }
+        is_enabled: { type: boolean }
+        triggers: { type: array, items: { $ref: '#/components/schemas/ScenarioTrigger' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/ScenarioAction' } }
+
+    Telemetry:
+      type: object
+      properties:
+        telemetry_id: { type: integer }
+        device_id: { type: integer }
+        timestamp: { type: string, format: date-time }
+        metric_type: { type: string }
+        value: { type: number }
+        unit: { type: string }
