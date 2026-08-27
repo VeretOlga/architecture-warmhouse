@@ -75,7 +75,8 @@
 [ER-диаграмма] (apps/ER-diagramm)
 
 ```
-<img width="2006" height="1536" alt="image" src="https://github.com/user-attachments/assets/32da3b61-102e-4460-993a-f2a10ff8c991" />
+<img width="2192" height="796" alt="image" src="https://github.com/user-attachments/assets/a7c7997c-fdcd-42c8-b5c1-8e1d39864ddb" />
+
 
 # Задание 4. Создание и документирование API
 
