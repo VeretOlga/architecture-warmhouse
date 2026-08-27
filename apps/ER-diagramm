@@ -36,6 +36,8 @@ entity Room {
   floor : integer
 }
 
+
+
 entity DeviceProduction {
   * deviceProduction_id : integer <<PK>>
   --
@@ -58,9 +60,9 @@ entity DeviceModel {
 entity Device {
   * device_id : integer <<PK>>
   --
-  foreign_key home_id : integer <<FK>>
-  foreign_key room_id : integer <<FK>>
-  foreign_key model_id : integer <<FK>>
+  home_id : integer 
+  room_id : integer 
+  model_id : integer 
   serial_number : varchar(100) <<unique>>
   firmware_version : varchar(50)
   ip_address : inet
@@ -71,25 +73,13 @@ entity Device {
   custom_name : varchar(255)
 }
 
-entity Module {
-  * module_id : integer <<PK>>
-  --
-  name : varchar(255)
-  description : text
-  price : decimal(10,2)
-  sku : varchar(50)
-}
 
-entity ModuleDevice {
-  * module_id : integer <<PK>>
-  * device_model_id : integer <<PK>>
-}
 
 entity Scenario {
   * scenario_id : integer <<PK>>
   --
-  foreign_key user_id : integer <<FK>>
-  foreign_key home_id : integer <<FK>>
+  user_id : integer <<FK>>
+  home_id : integer <<FK>>
   name : varchar(255)
   description : text
   is_enabled : boolean
@@ -101,7 +91,7 @@ entity Trigger {
   * trigger_id : integer <<PK>>
   --
   foreign_key scenario_id : integer <<FK>>
-  foreign_key device_id : integer <<FK>>
+  device_id : integer <<FK>>
   trigger_type : enum('temperature_threshold','motion_detected','time_schedule','device_state')
   condition : json
 }
@@ -110,7 +100,7 @@ entity Action {
   * action_id : integer <<PK>>
   --
   foreign_key scenario_id : integer <<FK>>
-  foreign_key device_id : integer <<FK>>
+  device_id : integer <<FK>>
   action_type : enum('set_temperature','turn_on','turn_off','open_gate','send_notification')
   parameters : json
 }
@@ -118,7 +108,7 @@ entity Action {
 entity Telemetry {
   * telemetry_id : bigint <<PK>>
   --
-  foreign_key device_id : integer <<FK>>
+  device_id : integer <<FK>>
   timestamp : timestamp
   metric_type : varchar(50)
   value : float
@@ -128,8 +118,8 @@ entity Telemetry {
 entity EventLog {
   * log_id : bigint <<PK>>
   --
-  foreign_key user_id : integer <<FK>>
-  foreign_key device_id : integer <<FK>>
+  user_id : integer <<FK>>
+  device_id : integer <<FK>>
   timestamp : timestamp
   event_type : varchar(50)
   details : json
@@ -139,36 +129,11 @@ entity EventLog {
 
 User ||--o{ Home : "владеет"
 Home ||--|{ Room : "содержит"
-Home ||--|{ Device : "размещает"
-Room ||--o{ Device : "находится в"
+
 
 DeviceProduction ||--|{ DeviceModel : "производит"
 DeviceModel ||--|{ Device : "соответствует"
 
-Module }|--|{ ModuleDevice : "состоит из"
-DeviceModel }|--|{ ModuleDevice : "входит в"
-
-User ||--|{ Scenario : "создаёт"
-Home ||--|{ Scenario : "действует в"
-
 Scenario ||--|{ Trigger : "содержит"
 Scenario ||--|{ Action : "выполняет"
-Device ||--o{ Trigger : "может быть источником"
-Device ||--o{ Action : "может быть целью"
-
-Device ||--|{ Telemetry : "генерирует"
-
-User ||--o{ EventLog : "инициирует"
-Device ||--o{ EventLog : "участвует"
-
-' === Легенда (опционально) ===
-legend bottom
-  <b>Обозначения:</b>
-  * <color:red>красный</color> – первичный ключ (PK)
-  * <color:blue>синий</color> – внешний ключ (FK)
-  * |--o{ – "один ко многим" (необязательная)
-  * ||--|{ – "один ко многим" (обязательная)
-  * }|--|{ – "многие ко многим"
-  * o--o – "ноль или один"
-endlegend
 @enduml
